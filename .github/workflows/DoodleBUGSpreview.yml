@@ -45,7 +45,10 @@ jobs:
           branch: gh-pages
           folder: DoodleBUGS/dist
           target-folder: DoodleBUGS/pr-previews/${{ github.event.pull_request.number }}
-          clean: false
+          clean: true
+          clean-exclude: |
+            DoodleBUGS/pr-previews/*/
+            !DoodleBUGS/pr-previews/${{ github.event.pull_request.number }}/
           commit-message: "DoodleBUGS: Deploy preview for PR ${{ github.event.pull_request.number }}"
 
       - name: Comment with preview URL
@@ -53,6 +56,11 @@ jobs:
         with:
           message: |
             <!-- preview-url-comment -->
-            A preview of this pull request has been deployed.
-            **[https://turinglang.org/JuliaBUGS.jl/DoodleBUGS/pr-previews/${{ github.event.pull_request.number }}](https://turinglang.github.io/JuliaBUGS.jl/DoodleBUGS/pr-previews/${{ github.event.pull_request.number }})**
+            🚀 **DoodleBUGS Preview Updated**
+            
+            A preview of this pull request is available:
+            **[View Preview →](https://turinglang.github.io/JuliaBUGS.jl/DoodleBUGS/pr-previews/${{ github.event.pull_request.number }})**
+            
+            _This preview is automatically updated with each new commit and will be cleaned up when the PR is merged or closed._
           comment_tag: preview-url-comment
+          mode: recreate

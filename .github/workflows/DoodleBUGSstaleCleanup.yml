@@ -1,0 +1,83 @@
+name: DoodleBUGS Stale Preview Cleanup
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  cleanup-stale-previews:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - name: Get list of open PRs
+        id: open-prs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            const prNumbers = prs.map(pr => pr.number);
+            console.log('Open PRs:', prNumbers);
+            return prNumbers;
+
+      - name: Clean up stale previews
+        run: |
+          echo "Open PR numbers: ${{ steps.open-prs.outputs.result }}"
+          
+          PREVIEW_BASE_PATH="DoodleBUGS/pr-previews"
+          
+          if [ -d "$PREVIEW_BASE_PATH" ]; then
+            echo "Checking for stale previews in $PREVIEW_BASE_PATH"
+            
+            # Get list of open PRs (remove brackets and quotes)
+            OPEN_PRS="${{ steps.open-prs.outputs.result }}"
+            OPEN_PRS=$(echo "$OPEN_PRS" | sed 's/\[//g' | sed 's/\]//g' | sed 's/,/ /g')
+            
+            # Configure git
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            
+            CLEANED_UP=false
+            
+            # Loop through all preview directories
+            for preview_dir in "$PREVIEW_BASE_PATH"/*; do
+              if [ -d "$preview_dir" ]; then
+                PR_NUM=$(basename "$preview_dir")
+                echo "Checking preview for PR #$PR_NUM"
+                
+                # Check if this PR number is in the list of open PRs
+                if ! echo "$OPEN_PRS" | grep -q "\b$PR_NUM\b"; then
+                  echo "PR #$PR_NUM is closed, removing preview"
+                  git rm -rf "$preview_dir"
+                  CLEANED_UP=true
+                else
+                  echo "PR #$PR_NUM is still open, keeping preview"
+                fi
+              fi
+            done
+            
+            # Commit and push if we cleaned up anything
+            if [ "$CLEANED_UP" = true ]; then
+              git commit -m "Clean up stale DoodleBUGS previews for closed PRs"
+              git push origin gh-pages
+              echo "Successfully cleaned up stale previews"
+            else
+              echo "No stale previews found"
+            fi
+          else
+            echo "No preview directory found"
+          fi

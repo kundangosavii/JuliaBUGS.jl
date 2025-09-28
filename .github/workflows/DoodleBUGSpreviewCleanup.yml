@@ -1,0 +1,57 @@
+name: DoodleBUGS Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - 'DoodleBUGS/**'
+      - '.github/workflows/DoodleBUGSpreview.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - name: Clean up DoodleBUGS PR preview
+        run: |
+          PREVIEW_PATH="DoodleBUGS/pr-previews/${{ github.event.number }}"
+          
+          if [ -d "$PREVIEW_PATH" ]; then
+            echo "Cleaning up preview for PR #${{ github.event.number }}"
+            
+            # Configure git
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            
+            # Remove the preview directory
+            git rm -rf "$PREVIEW_PATH"
+            
+            # Commit the changes
+            git commit -m "Clean up DoodleBUGS preview for PR #${{ github.event.number }}"
+            
+            # Push the changes
+            git push origin gh-pages
+            
+            echo "Successfully cleaned up preview for PR #${{ github.event.number }}"
+          else
+            echo "No preview found for PR #${{ github.event.number }}, skipping cleanup"
+          fi
+
+      - name: Update PR comment
+        if: github.event.pull_request.merged == true
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: |
+            <!-- preview-cleanup-comment -->
+            🧹 **Preview Cleaned Up**
+            
+            The preview for this pull request has been automatically removed after merging.
+          comment_tag: preview-cleanup-comment
